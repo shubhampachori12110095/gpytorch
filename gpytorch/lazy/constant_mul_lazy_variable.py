@@ -6,8 +6,7 @@ from .lazy_variable import LazyVariable
 class ConstantMulLazyVariable(LazyVariable):
     def __init__(self, lazy_var, constant):
         if not isinstance(constant, Variable):
-            tensor_cls = lazy_var.tensor_cls
-            constant = Variable(tensor_cls(1).fill_(constant))
+            constant = torch.tensor(constant, dtype=lazy_var.dtype)
         super(ConstantMulLazyVariable, self).__init__(lazy_var, constant)
         self.lazy_var = lazy_var
         self.constant = constant

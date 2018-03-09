@@ -103,7 +103,7 @@ def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_i
 
         # Update residual
         # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
-        torch.addcmul(residual, -1, alpha, mvms, out=residual)
+        torch.addcmul(residual, alpha, mvms, value=-1, out=residual)
 
         # If residual are sufficiently small, then exit loop
         # Alternatively, exit if this is our last iteration

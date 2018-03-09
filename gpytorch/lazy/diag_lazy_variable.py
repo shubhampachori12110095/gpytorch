@@ -1,4 +1,4 @@
-from torch.autograd import Variable
+import torch
 from .lazy_variable import LazyVariable
 
 
@@ -63,8 +63,9 @@ class DiagLazyVariable(LazyVariable):
 
     def zero_mean_mvn_samples(self, n_samples):
         if self.ndimension() == 3:
-            base_samples = Variable(self.tensor_cls(self._diag.size(0), self._diag.size(1), n_samples).normal_())
+            size = (self._diag.size(0), self._diag.size(1), n_samples)
         else:
-            base_samples = Variable(self.tensor_cls(self._diag.size(0), n_samples).normal_())
+            size = (self._diag.size(0), n_samples)
+        base_samples = torch.zeros(size, dtype=self.dtype).normal_()
         samples = self._diag.unsqueeze(-1) * base_samples
         return samples

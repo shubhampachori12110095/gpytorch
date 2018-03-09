@@ -27,7 +27,7 @@ class StochasticLQ(object):
         self.num_random_probes = num_random_probes
 
     def lanczos_batch(self, matmul_closure, rhs_vectors):
-        return lanczos_tridiag(matmul_closure, self.max_iter, init_vecs=rhs_vectors, tensor_cls=self.cls)
+        return lanczos_tridiag(matmul_closure, self.max_iter, init_vecs=rhs_vectors, dtype=self.dtype)
 
     def evaluate(self, t_mats, eigenvalues, eigenvectors, funcs):
         """

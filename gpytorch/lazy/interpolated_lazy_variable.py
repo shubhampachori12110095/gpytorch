@@ -10,11 +10,11 @@ from .. import beta_features
 class InterpolatedLazyVariable(LazyVariable):
     def __init__(self, base_lazy_variable, left_interp_indices=None, left_interp_values=None,
                  right_interp_indices=None, right_interp_values=None):
-        tensor_cls = base_lazy_variable.tensor_cls
+        dtype = base_lazy_variable.dtype
 
         if left_interp_indices is None:
             n_rows = base_lazy_variable.size()[-2]
-            left_interp_indices = Variable(tensor_cls(n_rows).long())
+            left_interp_indices = torch.zeros(n_rows, dtype=dtype).long()
             torch.arange(0, n_rows, out=left_interp_indices.data)
             left_interp_indices = left_interp_indices.unsqueeze(-1)
             if base_lazy_variable.ndimension() == 3:
@@ -25,11 +25,11 @@ class InterpolatedLazyVariable(LazyVariable):
                                                                               n_rows, 1)
 
         if left_interp_values is None:
-            left_interp_values = Variable(tensor_cls(left_interp_indices.size()).fill_(1))
+            left_interp_values = torch.ones(left_interp_indices.size(), dtype=dtype)
 
         if right_interp_indices is None:
             n_rows = base_lazy_variable.size()[-2]
-            right_interp_indices = Variable(tensor_cls(n_rows).long())
+            right_interp_indices = torch.zeros(n_rows, dtype=dtype).long()
             torch.arange(0, n_rows, out=right_interp_indices.data)
             right_interp_indices = right_interp_indices.unsqueeze(-1)
             if base_lazy_variable.ndimension() == 3:
@@ -40,7 +40,7 @@ class InterpolatedLazyVariable(LazyVariable):
                                                                                 n_rows, 1)
 
         if right_interp_values is None:
-            right_interp_values = Variable(tensor_cls(right_interp_indices.size()).fill_(1))
+            right_interp_values = torch.ones(right_interp_indices.size(), dtype=dtype)
 
         super(InterpolatedLazyVariable, self).__init__(base_lazy_variable, left_interp_indices, left_interp_values,
                                                        right_interp_indices, right_interp_values)

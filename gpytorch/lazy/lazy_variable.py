@@ -111,7 +111,7 @@ class LazyVariable(object):
         This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
         so this should only be done at the user's risk.
         """
-        diag = Variable(self.tensor_cls(1).fill_(1e-4))
+        diag = torch.tensor(1e-4, dtype=self.dtype)
         return self.add_diag(diag)
 
     def cpu(self):
@@ -149,16 +149,22 @@ class LazyVariable(object):
         if size[-1] != size[-2]:
             raise RuntimeError('Diag works on square matrices (or batches)')
 
-        row_col_iter = Variable(self.tensor_cls(size[-1]).long())
+        row_col_iter = torch.zeros(size[-1], dtype=self.dtype).long()
         torch.arange(0, size[-1], out=row_col_iter.data)
         if self.ndimension() == 3:
-            batch_iter = Variable(self.tensor_cls(size[0]).long())
+            batch_iter = torch.zeros(size[0], dtype=self.dtype).long()
             torch.arange(0, size[0], out=batch_iter.data)
             batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
             row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
             return self._batch_get_indices(batch_iter, row_col_iter, row_col_iter).view(size[0], size[1])
         else:
             return self._get_indices(row_col_iter, row_col_iter)
+
+    @property
+    def dtype(self):
+        if not hasattr(self, '_dtype'):
+            self._dtype = self.representation()[0].data.dtype
+        return self._dtype
 
     def evaluate(self):
         """
@@ -175,14 +181,14 @@ class LazyVariable(object):
             batch_size, n_rows, n_cols = size
 
         if n_rows < n_cols:
-            eye = Variable(self.tensor_cls(n_rows).fill_(1)).diag()
+            eye = torch.eye(n_rows, dtype=self.dtype)
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_rows)
                 return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
             else:
                 return self.t().matmul(eye).t().contiguous()
         else:
-            eye = Variable(self.tensor_cls(n_cols).fill_(1)).diag()
+            eye = torch.eye(n_cols, dtype=self.dtype)
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
@@ -443,8 +449,7 @@ class LazyVariable(object):
         dqff = self._derivative_quadratic_form_factory
         self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
-        function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
-                                           batch_size=batch_size)
+        function = self._root_decomp_class(self.dtype, self.size(-1), max_iter=self.root_decomposition_size(), batch_size=batch_size)
         res, _ = function(*self.representation())
         return res
 
@@ -467,7 +472,7 @@ class LazyVariable(object):
         dqff = self._derivative_quadratic_form_factory
         self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
-        function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
+        function = self._root_decomp_class(self.dtype, self.size(-1), max_iter=self.root_decomposition_size(),
                                            batch_size=batch_size, root=True, inverse=True,
                                            initial_vector=initial_vectors)
 
@@ -560,12 +565,6 @@ class LazyVariable(object):
             raise RuntimeError('Cannot call t for more than 2 dimensions')
         return self.transpose(0, 1)
 
-    @property
-    def tensor_cls(self):
-        if not hasattr(self, '_tensor_cls'):
-            self._tensor_cls = _import_dotted_name(self.representation()[0].data.type())
-        return self._tensor_cls
-
     def trace_log_det_quad_form(self, mu_diffs, chol_covar_1):
         if not hasattr(self, '_trace_log_det_quad_form_class'):
             tlqf_function_factory = function_factory.trace_logdet_quad_form_factory
@@ -589,9 +588,10 @@ class LazyVariable(object):
         """
         covar_root = self.root_decomposition()
         if self.ndimension() == 3:
-            base_samples = Variable(self.tensor_cls(self.size(0), covar_root.size(-1), n_samples).normal_())
+            size = (self.size(0), covar_root.size(-1), n_samples)
         else:
-            base_samples = Variable(self.tensor_cls(covar_root.size(-1), n_samples).normal_())
+            size = (covar_root.size(-1), n_samples)
+        base_samples = torch.zeros(size, dtype=self.dtype).normal_()
         samples = covar_root.matmul(base_samples)
         return samples
 
@@ -651,14 +651,18 @@ class LazyVariable(object):
 
         left_interp_len = len(left_interp_indices)
         right_interp_len = len(right_interp_indices)
-        for i in range(ndimension - 2):
+        for _ in range(ndimension - 2):
             left_interp_indices.unsqueeze_(0)
             right_interp_indices.unsqueeze_(0)
 
-        left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
-        left_interp_values = self.tensor_cls(left_interp_indices.size()).fill_(1)
-        right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
-        right_interp_values = self.tensor_cls(right_interp_indices.size()).fill_(1)
+        left_interp_indices = left_interp_indices.expand(
+            *(batch_sizes + [left_interp_len, 1])
+        )
+        left_interp_values = torch.ones(left_interp_indices.size(), dtype=self.dtype)
+        right_interp_indices = right_interp_indices.expand(
+            *(batch_sizes + [right_interp_len, 1])
+        )
+        right_interp_values = torch.ones(right_interp_indices.size(), dtype=self.dtype)
 
         res = InterpolatedLazyVariable(new_lazy_variable, Variable(left_interp_indices),
                                        Variable(left_interp_values),

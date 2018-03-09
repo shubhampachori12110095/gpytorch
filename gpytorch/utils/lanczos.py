@@ -2,7 +2,7 @@ import torch
 
 
 def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
-                    tensor_cls=None, batch_size=None, n_dims=None, n_init_vecs=None):
+                    dtype=None, batch_size=None, n_dims=None, n_init_vecs=None):
     # Determine batch mode
     is_batch = False
     multiple_init_vecs = False
@@ -12,12 +12,12 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
         def default_matmul_closure(tensor):
             return lhs.matmul(tensor)
         matmul_closure = default_matmul_closure
-    # Get initial probe ectors - and define if not available
+    # Get initial probe vectors - and define if not available
     if init_vecs is None:
-        if tensor_cls is None:
-            raise RuntimeError('You must supply tensor_cls if you don\'t supply init_vecs')
+        if dtype is None:
+            raise RuntimeError("You must supply dtype if you don't supply init_vecs")
         if n_dims is None:
-            raise RuntimeError('You must supply n_dims if you don\'t supply init_vecs')
+            raise RuntimeError("You must supply n_dims if you don't supply init_vecs")
 
         if batch_size is not None:
             is_batch = True
@@ -28,10 +28,10 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
         else:
             n_init_vecs = 1
 
-        init_vecs = tensor_cls(1, n_dims, n_init_vecs).normal_()
+        init_vecs = torch.zeros(1, n_dims, n_init_vecs, dtype=dtype).normal_()
         init_vecs = init_vecs.expand(batch_size, n_dims, n_init_vecs)
     else:
-        tensor_cls = init_vecs.new
+        dtype = init_vecs.dtype
         if n_init_vecs is not None or init_vecs.size(-1) > 1:
             multiple_init_vecs = True
         if init_vecs.ndimension() == 3:
@@ -57,8 +57,8 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
     # q_mat - batch version of Q - orthogonal matrix of decomp
     # alpha - batch version main diagonal of T
     # beta - batch version of off diagonal of T
-    q_mat = tensor_cls(n_iter, batch_size, n_dims, n_init_vecs).zero_()
-    t_mat = tensor_cls(n_iter, n_iter, batch_size, n_init_vecs).zero_()
+    q_mat = torch.zeros(n_iter, batch_size, n_dims, n_init_vecs, dtype=dtype)
+    t_mat = torch.zeros(n_iter, n_iter, batch_size, n_init_vecs, dtype=dtype)
 
     # Begin algorithm
     # Initial Q vector: q_0_vec
@@ -78,7 +78,7 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
     t_mat[0, 1].copy_(beta_0)
     t_mat[1, 0].copy_(beta_0)
 
-    # Compute teh first new vector
+    # Compute the first new vector
     q_mat[1].copy_(r_vec.div_(beta_0.unsqueeze(dim_dimension)))
 
     # Now we start the iteration
@@ -114,7 +114,7 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
             # Run more reorthoganilzation if necessary
             inner_products = q_mat[:k + 1].mul(r_vec.unsqueeze(0)).sum(dim_dimension)
             could_reorthogonalize = False
-            for i in range(10):
+            for _ in range(10):
                 if not torch.sum(inner_products > tol):
                     could_reorthogonalize = True
                     break

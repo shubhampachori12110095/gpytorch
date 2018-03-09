@@ -28,8 +28,10 @@ def _default_derivative_quadratic_form_factory(mat):
     return closure
 
 
-def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                       derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+def inv_matmul_factory(
+    matmul_closure_factory=_default_matmul_closure_factory,
+    derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+):
     class InvMatmul(Function):
         def __init__(self, *args):
             self.args = args
@@ -75,9 +77,11 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
     return InvMatmul
 
 
-def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
-                   t_matmul_closure_factory=_default_t_matmul_closure_factory):
+def matmul_factory(
+    matmul_closure_factory=_default_matmul_closure_factory,
+    derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+    t_matmul_closure_factory=_default_t_matmul_closure_factory,
+):
     class Matmul(Function):
         def __init__(self, *args):
             self.args = args
@@ -129,8 +133,10 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
     return Matmul
 
 
-def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+def trace_logdet_quad_form_factory(
+    matmul_closure_factory=_default_matmul_closure_factory,
+    derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+):
     class TraceLogDetQuadForm(Function):
         def forward(self, mu_diff, chol_covar1, *covar2_args):
             # Probe vector for lanczos quadrature
@@ -235,8 +241,10 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
     return TraceLogDetQuadForm
 
 
-def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                         derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+def exact_gp_mll_factory(
+    matmul_closure_factory=_default_matmul_closure_factory,
+    derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+):
     class ExactGPMLL(Function):
         def forward(self, *args):
             closure_args = args[:-1]
@@ -345,11 +353,13 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
     return ExactGPMLL
 
 
-def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                               derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+def root_decomposition_factory(
+    matmul_closure_factory=_default_matmul_closure_factory,
+    derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+):
     class RootDecomposition(Function):
-        def __init__(self, cls, size, max_iter, batch_size=None, root=True, inverse=False, initial_vector=None):
-            self.cls = cls
+        def __init__(self, dtype, size, max_iter, batch_size=None, root=True, inverse=False, initial_vector=None):
+            self.dtype = dtype
             self.size = size
             self.max_iter = max_iter
             self.batch_size = batch_size
@@ -364,9 +374,14 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                 return matmul_closure(rhs)
 
             # Do lanczos
-            q_mat, t_mat = lanczos_tridiag(tensor_matmul_closure, self.max_iter,
-                                           tensor_cls=self.cls, batch_size=self.batch_size,
-                                           n_dims=self.size, init_vecs=self.initial_vector)
+            q_mat, t_mat = lanczos_tridiag(
+                tensor_matmul_closure,
+                self.max_iter,
+                dtype=self.dtype,
+                batch_size=self.batch_size,
+                n_dims=self.size,
+                init_vecs=self.initial_vector,
+            )
             if self.batch_size is None:
                 q_mat = q_mat.unsqueeze(-3)
                 t_mat = t_mat.unsqueeze(-3)
@@ -436,8 +451,13 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                     root_inverse_t = q_mat_t / root_evals.unsqueeze(-1)
 
                 # Left factor:
-                left_factor = root_inverse_t.new(root_inverse_t.size(0), root_inverse_t.size(1),
-                                                 root_inverse_t.size(-2), root_inverse_t.size(-1)).zero_()
+                left_size = (
+                    root_inverse_t.size(0),
+                    root_inverse_t.size(1),
+                    root_inverse_t.size(-2),
+                    root_inverse_t.size(-1),
+                )
+                left_factor = torch.zeros(left_size, dtype=root_inverse_t.dtype)
                 if root_grad_output is not None:
                     left_factor.add_(root_grad_output.transpose(-1, -2))
                 if inverse_grad_output is not None:

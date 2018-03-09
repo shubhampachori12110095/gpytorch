@@ -32,7 +32,7 @@ class SumBatchLazyVariable(LazyVariable):
 
             tensor = tensor.unsqueeze(0)
             tensor_size = list(tensor.size())
-            tensor_size[0] = self.batch_size()
+            tensor_size[0] = self.batch_size
             tensor = tensor.expand(*tensor_size)
 
             res = super_closure(tensor)
@@ -54,12 +54,12 @@ class SumBatchLazyVariable(LazyVariable):
         def closure(left_factor, right_factor):
             left_factor = left_factor.unsqueeze(0)
             left_factor_size = list(left_factor.size())
-            left_factor_size[0] = self.batch_size()
+            left_factor_size[0] = self.batch_size
             left_factor = left_factor.expand(*left_factor_size)
 
             right_factor = right_factor.unsqueeze(0)
             right_factor_size = list(right_factor.size())
-            right_factor_size[0] = self.batch_size()
+            right_factor_size[0] = self.batch_size
             right_factor = right_factor.expand(*right_factor_size)
 
             res = super_closure(left_factor, right_factor)
@@ -72,8 +72,8 @@ class SumBatchLazyVariable(LazyVariable):
         if self.sum_batch_size is None:
             return torch.Size(list(base_size)[1:])
         else:
-            inner_batch_size = self.batch_size() - self.sum_batch_size
-            return torch.Size(list([inner_batch_size]) + list(base_size)[1:])
+            inner_batch_size = self.batch_size - self.sum_batch_size
+            return torch.Size([inner_batch_size] + list(base_size)[1:])
 
     def _transpose_nonbatch(self):
         return SumBatchLazyVariable(self.base_lazy_variable._transpose_nonbatch())
@@ -82,14 +82,15 @@ class SumBatchLazyVariable(LazyVariable):
         raise RuntimeError('Batch get indices is not implmeneted yet')
 
     def _get_indices(self, left_indices, right_indices):
-        batch_indices = Variable(self.tensor_cls(self.batch_size()).long())
-        torch.arange(0, self.batch_size(), out=batch_indices.data)
+        batch_indices = torch.zeros(self.batch_size, dtype=self.dtype).long()
+        torch.arange(0, self.batch_size, out=batch_indices.data)
         batch_indices = batch_indices.unsqueeze(1).repeat(1, len(left_indices)).view(-1)
-        left_indices = left_indices.unsqueeze(1).repeat(self.batch_size(), 1).view(-1)
-        right_indices = right_indices.unsqueeze(1).repeat(self.batch_size(), 1).view(-1)
+        left_indices = left_indices.unsqueeze(1).repeat(self.batch_size, 1).view(-1)
+        right_indices = right_indices.unsqueeze(1).repeat(self.batch_size, 1).view(-1)
         res = self.base_lazy_variable._batch_get_indices(batch_indices, left_indices, right_indices)
-        return res.view(self.batch_size(), -1).sum(0)
+        return res.view(self.batch_size, -1).sum(0)
 
+    @property
     def batch_size(self):
         return self.base_lazy_variable.size(0)
 

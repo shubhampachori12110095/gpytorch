@@ -26,7 +26,7 @@ def toeplitz(toeplitz_column, toeplitz_row):
     if len(toeplitz_column) != len(toeplitz_row):
         raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
 
-    if type(toeplitz_column) != type(toeplitz_row):
+    if toeplitz_column.type() != toeplitz_row.type():
         raise RuntimeError('toeplitz_column and toeplitz_row should be the same type.')
 
     if len(toeplitz_column) == 1:
@@ -123,7 +123,10 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
                             otherwise the value of T[0,0] is ambiguous. \
                             Got: c[0]={} and r[0]={}'.format(toeplitz_column[0], toeplitz_row[0]))
 
-    if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(tensor):
+    if (
+        toeplitz_column.type() != toeplitz_row.type()
+        or toeplitz_column.type() != tensor.type()
+    ):
         raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
 
     output_dims = tensor.ndimension()

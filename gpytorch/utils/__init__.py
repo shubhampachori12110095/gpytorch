@@ -37,20 +37,16 @@ def rcumsum(input, dim=0):
     return torch.index_select(input, dim, reverse_index).cumsum(dim).index_select(dim, reverse_index)
 
 
-def approx_equal(self, other, epsilon=1e-4):
+def approx_equal(tensor_1, tensor_2, epsilon=1e-4):
     """
     Determines if two tensors are approximately equal
     Args:
-        - self: tensor
-        - other: tensor
+        - tensor_1: tensor
+        - tensor_2: tensor
     Returns:
         - bool
     """
-    if isinstance(self, Variable):
-        self = self.data
-    if isinstance(other, Variable):
-        other = other.data
-    return torch.max((self - other).abs()) <= epsilon
+    return torch.max((tensor_1 - tensor_2).abs()) <= epsilon
 
 
 def bdsmm(sparse, dense):
@@ -175,12 +171,10 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
     summing_matrix_values = interp_values.data.new(batch_size * n_data * n_interp).fill_(1)
     size = torch.Size((batch_size, output_dim, n_data * n_interp))
 
-    type_name = summing_matrix_values.type().split('.')[-1]  # e.g. FloatTensor
-    if interp_values.is_cuda:
-        cls = getattr(torch.cuda.sparse, type_name)
-    else:
-        cls = getattr(torch.sparse, type_name)
-    summing_matrix = Variable(cls(summing_matrix_indices, summing_matrix_values, size))
+    # create sparse tensor of appropriate data type (TODO: improve torch.sparse api)
+    sparse_module = torch.cuda.sparse if interp_values.is_cuda else torch.sparse
+    sparse_class = getattr(sparse_module, summing_matrix_values.type().split('.')[-1])
+    summing_matrix = sparse_class(summing_matrix_indices, summing_matrix_values, size)
 
     res = dsmm(summing_matrix, values)
 
@@ -204,8 +198,8 @@ def sparse_eye(size):
     """
     indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
     values = torch.Tensor([1]).expand(size)
-    cls = getattr(torch.sparse, values.type().split('.')[-1])
-    return cls(indices, values, torch.Size([size, size]))
+    sparse_class = getattr(torch.sparse, values.type().split('.')[-1])
+    return sparse_class(indices, values, torch.Size([size, size]))
 
 
 def sparse_getitem(sparse, idxs):
@@ -312,12 +306,10 @@ def to_sparse(dense):
         indices = indices.resize_(1, dense.ndimension()).zero_()
         values = dense.new().resize_(1).zero_()
 
-    # Construct sparse tensor
-    klass = getattr(torch.sparse, dense.type().split('.')[-1])
-    res = klass(indices.t(), values, dense.size())
-    if dense.is_cuda:
-        res = res.cuda()
-    return res
+    # create sparse tensor of appropriate data type (TODO: improve torch.sparse api)
+    sparse_module = torch.cuda.sparse if dense.is_cuda else torch.sparse
+    sparse_class = getattr(sparse_module, dense.type().split('.')[-1])
+    return sparse_class(indices.t(), values, dense.size())
 
 
 def tridiag_batch_potrf(trid, upper=False):

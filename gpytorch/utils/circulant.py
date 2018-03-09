@@ -80,7 +80,7 @@ def circulant_matmul(circulant_column, tensor):
     if len(circulant_column) != len(tensor):
         raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
 
-    if type(circulant_column) != type(tensor):
+    if circulant_column.type() != tensor.type():
         raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
 
     output_dims = tensor.ndimension()
@@ -123,7 +123,7 @@ def circulant_inv_matmul(circulant_column, matrix):
     if len(circulant_column) != len(matrix):
         raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
 
-    if type(circulant_column) != type(matrix):
+    if circulant_column.type() != matrix.type():
         raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
 
     if len(circulant_column) == 1:
