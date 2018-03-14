@@ -1,6 +1,5 @@
 import torch
 
-
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):
     matrix_size = matrix.size(-1)
     matrix_diag = matrix.diag()
@@ -8,6 +7,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):
     permutation = torch.arange(len(matrix)).long()
 
     m = 0
+    # TODO: pivoted_cholesky should take tensor_cls and use that here instead
     L = torch.zeros(max_iter, matrix_size)
     while m < max_iter and error > error_tol:
         max_diag_value, max_diag_index = torch.max(matrix_diag[permutation][m:], 0)
@@ -19,16 +19,18 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):
 
         pi_m = permutation[m]
 
-        L[m, permutation[m]] = torch.sqrt(max_diag_value)[0]
+        L_m = L[m] # Will be all zeros -- should we use torch.zeros?
+        L_m[pi_m] = torch.sqrt(max_diag_value)[0]
         row = matrix[permutation[m]]
-        for i in range(m + 1, matrix_size):
-            # TODO: BATCH THIS FOR LOOP!!!
-            pi_i = permutation[i]
-            L[m, pi_i] = row[pi_i]
-            if m > 0:
-                L[m, pi_i] -= (torch.sum(L[:m, pi_m] * L[:m, pi_i]))
-            L[m, pi_i] /= L[m, pi_m]
-            matrix_diag[pi_i] = matrix_diag[pi_i] - (L[m, pi_i] ** 2)
+        pi_i = permutation[m + 1:]
+        L_m[pi_i] = row[pi_i]
+        if m > 0:
+            L_prev = L[:m].index_select(1, pi_i)
+            L_m[pi_i] -= torch.sum(L[:m, pi_m].unsqueeze(1) * L_prev, dim=0)
+        L_m[pi_i] /= L_m[pi_m]
+
+        matrix_diag[pi_i] = matrix_diag[pi_i] - (L_m[pi_i] ** 2)
+        L[m] = L_m
 
         error = torch.sum(matrix_diag[permutation[m + 1:]])
         m = m + 1
