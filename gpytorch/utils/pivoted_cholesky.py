@@ -1,14 +1,21 @@
 import torch
 
+
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):
     matrix_size = matrix.size(-1)
     matrix_diag = matrix.diag()
+
+    # TODO: This check won't be necessary in PyTorch 0.4
+    if isinstance(matrix_diag, torch.autograd.Variable):
+        matrix_diag = matrix_diag.data
+
     error = torch.norm(matrix_diag, 1)
-    permutation = torch.arange(len(matrix)).long()
+    permutation = matrix_diag.new(matrix_size).long()
+    torch.arange(0, matrix_size, out=permutation)
 
     m = 0
     # TODO: pivoted_cholesky should take tensor_cls and use that here instead
-    L = torch.zeros(max_iter, matrix_size)
+    L = matrix_diag.new(max_iter, matrix_size).zero_()
     while m < max_iter and error > error_tol:
         max_diag_value, max_diag_index = torch.max(matrix_diag[permutation][m:], 0)
         max_diag_index = max_diag_index + m
@@ -21,7 +28,12 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):
 
         L_m = L[m] # Will be all zeros -- should we use torch.zeros?
         L_m[pi_m] = torch.sqrt(max_diag_value)[0]
-        row = matrix[permutation[m]]
+
+        row = matrix[pi_m]
+
+        if isinstance(row, torch.autograd.Variable):
+            row = row.data
+
         pi_i = permutation[m + 1:]
         L_m[pi_i] = row[pi_i]
         if m > 0:
