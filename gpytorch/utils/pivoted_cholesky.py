@@ -4,22 +4,28 @@ from gpytorch.lazy import LazyVariable, NonLazyVariable
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):
-    # matrix is assumed to be batch_size x n x n
-    batch_size = matrix.size(0)
-    matrix_size = matrix.size(-1)
+    # TODO: This check won't be necessary in PyTorch 0.4
+    if isinstance(matrix_diag, torch.autograd.Variable):
+        matrix_diag = matrix_diag.data
+
+    if torch.is_tensor(matrix) and matrix.ndimension() < 3:
+        matrix.unsqueeze_(0)
+    elif isinstance(matrix, LazyVariable) and len(matrix.size()) < 3:
+        batch_size = 1 # batched accesses to LazyVariables should work out
+        matrix_size = matrix.size(-1)
+    else:
+        # matrix is assumed to be batch_size x n x n
+        batch_size = matrix.size(0)
+        matrix_size = matrix.size(-1)
 
     # Need to get diagonals. This is easy if it's a LazyVariable, since
     # LazyVariable.diag() operates in batch mode.
     if isinstance(matrix, LazyVariable):
-        matrix_diag = matrix.diag
+        matrix_diag = matrix.diag()
     elif isinstance(matrix, Variable):
         matrix_diag = NonLazyVariable(matrix).diag()
     elif torch.is_tensor(matrix):
         matrix_diag = NonLazyVariable(Variable(matrix)).diag()
-
-    # TODO: This check won't be necessary in PyTorch 0.4
-    if isinstance(matrix_diag, torch.autograd.Variable):
-        matrix_diag = matrix_diag.data
 
     # matrix_diag is now batch_size x n
 
