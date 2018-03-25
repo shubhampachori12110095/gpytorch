@@ -4,7 +4,7 @@ from gpytorch.lazy import LazyVariable, NonLazyVariable
 import pdb
 
 
-def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):
+def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
     # matrix is assumed to be batch_size x n x n
     if matrix.ndimension() < 3:
         batch_size = 1
