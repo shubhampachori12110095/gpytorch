@@ -1,11 +1,11 @@
 import torch
 from torch.autograd import Variable
-from gpytorch.lazy import LazyVariable, NonLazyVariable
+from ..lazy import LazyVariable, NonLazyVariable
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):
     # TODO: This check won't be necessary in PyTorch 0.4
-    if isinstance(matrix_diag, torch.autograd.Variable):
+    if isinstance(matrix, torch.autograd.Variable):
         matrix_diag = matrix_diag.data
 
     if torch.is_tensor(matrix) and matrix.ndimension() < 3:
